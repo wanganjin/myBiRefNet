@@ -16,10 +16,34 @@ from io import BytesIO
 STATIC_DIR = "static"
 if not os.path.exists(STATIC_DIR):
     os.makedirs(STATIC_DIR)
+    
+from utils import check_state_dict
+
+PATH_TO_WEIGHT = 'weights/model.safetensors'
 
 # 加载模型
 print("正在加载 BiRefNet 模型...")
-birefnet = BiRefNet.from_pretrained('ZhengPeng7/BiRefNet')
+# birefnet = BiRefNet.from_pretrained('ZhengPeng7/BiRefNet')
+birefnet = BiRefNet(bb_pretrained=False)
+
+# 尝试不同的加载方式
+try:
+    # 首先尝试作为 safetensors 加载
+    from safetensors.torch import load_file
+    state_dict = load_file(PATH_TO_WEIGHT, device='cpu')
+    print("使用 safetensors 格式加载成功")
+except Exception as e:
+    print(f"safetensors 加载失败: {e}")
+    try:
+        # 如果 safetensors 失败，尝试作为 pth 文件加载
+        state_dict = torch.load(PATH_TO_WEIGHT, map_location='cpu', weights_only=False)
+        print("使用 pth 格式加载成功")
+    except Exception as e2:
+        print(f"pth 格式加载也失败: {e2}")
+        raise Exception("无法加载模型权重文件")
+
+state_dict = check_state_dict(state_dict)
+birefnet.load_state_dict(state_dict)
 torch.set_float32_matmul_precision(['high', 'highest'][0])
 birefnet.to('cpu')
 birefnet.eval()
